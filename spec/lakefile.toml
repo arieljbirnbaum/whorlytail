@@ -1,0 +1,10 @@
+name = "whorlytail-spec"
+version = "0.1.0"
+defaultTargets = ["whorlytail-spec"]
+
+[[lean_lib]]
+name = "WhorlytailSpec"
+
+[[lean_exe]]
+name = "whorlytail-spec"
+root = "Main"
