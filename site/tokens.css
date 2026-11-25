@@ -1,0 +1,11 @@
+/* Whorlytail palette tokens (Ailurid Group) */
+:root {
+  --wt-red: #E8232A; /* Primary brand red: panda fur, tail base colour */
+  --wt-rust: #A3161B; /* Dark red: shading, pressed states, secondary text on light */
+  --wt-marigold: #F2A93B; /* Whorlytail signature accent: tail rings and highlights only */
+  --wt-warm-white: #F4EFE6; /* App/tile background */
+  --wt-cream: #FFFDF8; /* Surfaces and cards; panda face markings */
+  --wt-ink: #161213; /* Body text, icons, eyes and pencil point */
+  --wt-tail-tip: #2A1B19; /* Tail tip and pencil cap; dark surfaces */
+  --wt-wood: #F7CB87; /* Pencil wood (60% marigold + 40% cream); illustration only */
+}

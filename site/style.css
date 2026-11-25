@@ -1,0 +1,55 @@
+@import "./tokens.css";
+
+@font-face {
+  font-family: "Nunito";
+  src: url("./fonts/Nunito-Variable.ttf") format("truetype");
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  font-family: "Nunito", sans-serif;
+  font-size: 16px;
+  background: var(--wt-warm-white);
+  color: var(--wt-ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--wt-warm-white);
+  color: var(--wt-ink);
+}
+
+main {
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.brand-lockup {
+  display: block;
+  height: 4.5rem;
+  width: auto;
+}
+
+.lede,
+.empty,
+.when,
+label {
+  color: var(--wt-rust);
+}
+
+.lede {
+  margin: 0.85rem 0 0;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--wt-rust);
+}
