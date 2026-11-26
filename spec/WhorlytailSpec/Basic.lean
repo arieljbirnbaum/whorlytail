@@ -1,3 +1,9 @@
+import Mathlib.Combinatorics.Digraph.Basic
+
+structure Uid (_ : Type) where
+  val : Nat
+  deriving DecidableEq
+
 structure Interval where
   start : Nat
   stop : Nat
@@ -12,9 +18,9 @@ theorem Interval.contains_trans {outer middle inner : Interval} (hom : outer.con
   omega
 
 structure Cycle where
-  id : Nat
+  id : Uid Cycle
   interval : Interval
-  parent? : Option Nat
+  parent? : Option (Uid Cycle)
 
 def Cycle.within (inner outer : Cycle) : Prop :=
   outer.interval.contains inner.interval
@@ -22,43 +28,43 @@ def Cycle.within (inner outer : Cycle) : Prop :=
 theorem Cycle.within_trans {inner middle outer : Cycle} (him : inner.within middle)
     (hmo : middle.within outer) : inner.within outer := by exact Interval.contains_trans hmo him
 
-structure Goal where
-  id : Nat
+inductive Goal where
+
+structure GoalData where
   title : String
-  parent? : Option Nat
+  description : String
 
-def uniqueIds (goals : List Goal) : Prop :=
-  ∀ g1 ∈ goals, ∀ g2 ∈ goals, g1.id = g2.id → g1 = g2
+inductive GoalState where
+  | needsAction
+  | inProgress
+  | completed
+  | cancelled
 
-def reachesRoot (goals : List Goal) : Nat → Goal → Prop
-  | 0, _ => False
-  | fuel + 1, g =>
-    match g.parent? with
-    | none => True
-    | some pid => ∃ p ∈ goals, p.id = pid ∧ reachesRoot goals fuel p
+def GoalState.finished (state : GoalState) : Prop :=
+  match state with
+  | needsAction | inProgress => False
+  | completed | cancelled => True
 
-def allGoalsReachRoot (goals : List Goal) : Prop :=
-  ∀ g ∈ goals, reachesRoot goals goals.length g
+def GoalState.unfinished (state : GoalState) : Prop :=
+  ¬state.finished
 
-structure Model where
-  goals : List Goal
-  valid : uniqueIds goals ∧ allGoalsReachRoot goals
+structure PlanState where
+  goals : Finset (Uid Goal)
+  data : goals -> GoalData
+  state : goals -> GoalState
+  blocks : Digraph goals
+  hWellFounded : WellFounded blocks.Adj
+  parent? : (g : goals) -> Option { b : goals // blocks.Adj g b }
+  hNoPendingChildren : ∀ c p, parent? c = some p → (state p.val).finished → (state c).finished
 
-theorem self_parent_never_reaches_root {goals : List Goal} {goal : Goal} (hUnique : uniqueIds goals)
-    (hInGoals : goal ∈ goals) (hSelfParent : goal.parent? = some goal.id) (fuel : Nat) :
-    ¬reachesRoot goals fuel goal := by
-  induction fuel with
-  | zero => exact id
-  | succ fuel ih =>
-    intro hReachesRootInSuccFuel
-    obtain ⟨parent, hParentInGoals, hParentGoalSameId, hParentReachesRootInFuel⟩ :
-      ∃ parent ∈ goals, parent.id = goal.id ∧ reachesRoot goals fuel parent := by
-      simpa only [reachesRoot, hSelfParent] using hReachesRootInSuccFuel
-    obtain rfl : parent = goal := hUnique parent hParentInGoals goal hInGoals hParentGoalSameId
-    exact ih hParentReachesRootInFuel
+def PlanState.unfinished {plan : PlanState} (g : plan.goals) : Prop :=
+  (plan.state g).unfinished
 
-theorem Model.no_self_parent {model : Model} : ∀ g ∈ model.goals, g.parent? ≠ some g.id := by
-  intro goal hInGoals hSelfParent
-  obtain ⟨hUnique, hAllReachRoot⟩ := model.valid
-  have hReach : reachesRoot model.goals model.goals.length goal := hAllReachRoot goal hInGoals
-  exact self_parent_never_reaches_root hUnique hInGoals hSelfParent _ hReach
+def PlanState.blocked {plan : PlanState} (g : plan.goals) : Prop :=
+  ∃ b : plan.goals, Relation.TransGen plan.blocks.Adj b g ∧ unfinished b
+
+def PlanState.ready {plan : PlanState} (g : plan.goals) : Prop :=
+  unfinished g ∧ ¬blocked g
+
+def PlanState.nextGoals (plan : PlanState) :=
+  { goal : plan.goals // ready goal }
