@@ -1,9 +1,31 @@
-module Whorlytail.Plan where
+module Whorlytail.Plan
+  ( GoalId,
+    GoalData (..),
+    GoalState (..),
+    PlanState,
+    DependencyEdge (..),
+    Uid (..),
+    isFinished,
+    goals,
+    blocks,
+    parents,
+    emptyPlan,
+    setGoal,
+    removeGoal,
+    addDependencyEdge,
+    removeDependencyEdge,
+    setParent,
+    unsetParent,
+    setState,
+    nextGoals,
+  )
+where
 
 import Algebra.Graph.AdjacencyMap qualified as AM
 import Algebra.Graph.AdjacencyMap.Algorithm (reachable)
-import Control.Monad (unless)
+import Control.Monad (MonadPlus, guard, unless)
 import Data.Bifunctor (first)
+import Data.Functor (($>))
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Set (Set)
@@ -72,13 +94,16 @@ setGoal goalId goalData planState =
           (goals planState)
     }
 
+validate :: (MonadPlus m) => (a -> Bool) -> a -> m a
+validate p a = guard (p a) $> a
+
 -- Remove a goal (idempotent)
 removeGoal :: GoalId -> PlanState -> PlanState
 removeGoal goalId planState =
   planState
     { goals = Map.delete goalId (goals planState),
       blocks =
-        Map.map (Set.delete goalId)
+        Map.mapMaybe (validate (not . Set.null) . Set.delete goalId)
           . Map.delete goalId
           $ blocks planState,
       parents =
@@ -145,7 +170,7 @@ addDependencyEdge (blocker `Blocks` blocked) planState = do
 removeDependencyEdge :: DependencyEdge -> PlanState -> PlanState
 removeDependencyEdge (blocker `Blocks` blocked) planState =
   planState
-    { blocks = Map.adjust (Set.delete blocked) blocker (blocks planState),
+    { blocks = Map.update (validate (not . Set.null) . Set.delete blocked) blocker (blocks planState),
       parents = case Map.lookup blocker (parents planState) of
         Just p | p == blocked -> Map.delete blocker (parents planState)
         _ -> parents planState
