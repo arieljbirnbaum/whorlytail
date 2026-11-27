@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref. Cancel superseded runs on every branch except the default.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+jobs:
+  core:
+    name: core
+    runs-on: ubuntu-latest
+    # actions: write is the cache scope. contents stays read-only.
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          # base ^>=4.22.0.0 (core/whorlytail-core.cabal) requires GHC 9.14.x.
+          ghc-version: "9.14.1"
+          cabal-version: "3.16.1.0"
+
+      - name: Configure
+        run: |
+          cabal configure --enable-tests --disable-documentation
+          cabal build all --dry-run
+
+      - name: Restore Cabal store
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: cabal-${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-cabal-${{ steps.setup.outputs.cabal-version }}-${{ hashFiles('**/plan.json') }}
+          restore-keys: |
+            cabal-${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-cabal-${{ steps.setup.outputs.cabal-version }}-
+
+      - name: Build dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cabal build all --only-dependencies
+
+      - name: Save Cabal store
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+      # --ghc-options on cabal test/build apply to local packages only, so
+      # -Werror does not rebuild dependencies.
+      - name: Test
+        run: cabal test all --test-show-details=direct --ghc-options=-Werror
+
+  spec:
+    name: spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # use-mathlib-cache runs `lake exe cache get` before `lake build`.
+      # The GitHub .lake cache is left off: Mathlib oleans are already
+      # fetched from cache.mathlib.org, and archiving .lake is too large
+      # for the hosted runner.
+      - uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: spec
+          build: "true"
+          test: "false"
+          lint: "false"
+          use-mathlib-cache: "true"
+          use-github-cache: "false"
+
+      # lean-fmt v4.36.0-fmt.2: `check` lints the project in the working
+      # directory. Exit 0 is clean, 1 is findings (or unbuilt/broken
+      # sources), 2 is an infrastructure failure. `--check` belongs to
+      # `format`, not to this subcommand.
+      - name: lean-fmt check
+        working-directory: spec
+        run: lake exe lean-fmt check

@@ -1,0 +1,7 @@
+dist-newstyle/
+.ghc.environment.*
+*.o
+*.hi
+*.hie
+*.chi
+*.chs.h

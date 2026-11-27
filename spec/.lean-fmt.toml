@@ -1,0 +1,10 @@
+[format]
+line-width = 100
+declaration-body = "next-line"
+declaration-where = "same-line"
+reflow-comments = true
+magic-trailing-comma = "respect"
+
+[lint]
+select = ["all"]
+ignore = []

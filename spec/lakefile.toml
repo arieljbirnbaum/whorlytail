@@ -8,3 +8,14 @@ name = "WhorlytailSpec"
 [[lean_exe]]
 name = "whorlytail-spec"
 root = "Main"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.36.0"
+
+[[require]]
+name = "lean-fmt"
+scope = "build"
+git = "https://github.com/jcreinhold/lean-fmt"
+rev = "v4.36.0-fmt.2"
