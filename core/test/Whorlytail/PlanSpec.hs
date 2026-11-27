@@ -166,7 +166,24 @@ unitTests =
         assertEqual "unsetParent missing" p0 (unsetParent (gid 99) p0)
         assertEqual "removeDependencyEdge missing" p0 (removeDependencyEdge (gid 1 `Blocks` gid 99) p0)
         assertBool "addDependencyEdge missing goal fails" $
-          isLeft (addDependencyEdge (gid 1 `Blocks` gid 99) p0)
+          isLeft (addDependencyEdge (gid 1 `Blocks` gid 99) p0),
+      testCase "addDependencyEdge then removeDependencyEdge restores the prior plan" $ do
+        let a = gid 1
+            b = gid 2
+            before = setGoal b (gdata "B") $ setGoal a (gdata "A") emptyPlan
+        added <- expectRight (addDependencyEdge (a `Blocks` b) before)
+        let removed = removeDependencyEdge (a `Blocks` b) added
+        removed @?= before
+        assertBool "blocks has no empty sets" (blocksCanonical removed),
+      testCase "removeGoal of the blocked goal leaves only the blocker" $ do
+        let a = gid 1
+            b = gid 2
+            before = setGoal b (gdata "B") $ setGoal a (gdata "A") emptyPlan
+            onlyA = setGoal a (gdata "A") emptyPlan
+        added <- expectRight (addDependencyEdge (a `Blocks` b) before)
+        let removed = removeGoal b added
+        removed @?= onlyA
+        assertBool "blocks has no empty sets" (blocksCanonical removed)
     ]
 
 foldMRight :: (Show e) => (a -> s -> Either e s) -> s -> [a] -> IO s
@@ -226,6 +243,9 @@ reachableFrom adj start = go Set.empty (Set.toList (Map.findWithDefault Set.empt
           let nexts = Set.toList (Map.findWithDefault Set.empty x adj)
            in go (Set.insert x visited) (nexts <> xs)
 
+blocksCanonical :: PlanState -> Bool
+blocksCanonical p = all (not . Set.null) (Map.elems (blocks p))
+
 invariantsHold :: PlanState -> Bool
 invariantsHold p =
   let gs = Map.keysSet (goals p)
@@ -245,7 +265,11 @@ invariantsHold p =
                 _ -> False
           )
           (Map.toList ps)
-   in blocksEndpointsValid && parentsSubgraphOfBlocks && acyclic && noPendingChildren
+   in blocksCanonical p
+        && blocksEndpointsValid
+        && parentsSubgraphOfBlocks
+        && acyclic
+        && noPendingChildren
 
 expectedNextGoals :: PlanState -> Set GoalId
 expectedNextGoals p =
